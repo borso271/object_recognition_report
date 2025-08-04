@@ -1,0 +1,1699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Object Recognition Study Report</title>
+  <style>
+    /* ---------  Minimal, journal‑style layout  --------- */
+    :root {
+      --primary-color: #000;       /* main text and heading colour */
+      --secondary-color: #555;     /* subtitles, figure captions */
+      --border-color: #ccc;        /* subtle section underline */
+      --bg-color: #fff;
+      --code-bg: #f5f5f5;
+      --max-width: 900px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      padding: 2rem 1rem;
+      font-family: Arial, "Times New Roman", Times, serif;
+      line-height: 1.6;
+      color: var(--primary-color);
+      background: var(--bg-color);
+      display: flex;
+      justify-content: center;
+     margin-bottom:60px;
+    }
+
+    .eval_sub {
+      padding-bottom:10px;
+      margin-bottom: 30px;
+      border-bottom:1px solid #ccc;
+    }
+    .eval_sub:last-child {
+    
+      border-bottom:none;
+    }
+
+    main { max-width: var(--max-width); width: 100%; }
+
+    /* Typography */
+    h1, h2, h3 { font-weight: 600; color: var(--primary-color); margin: 0 0 0.5rem; }
+
+    h1 { font-size: 1.8rem; text-align: center; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.4rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.25rem; margin-top: 2rem; }
+
+    p { margin: 0 0 1rem; text-align: justify; }
+
+    /* Figures / tables / code */
+    figure { margin: 1.5rem 0; text-align: center; }
+    figcaption { color: var(--secondary-color); font-size: 0.9rem; margin-top: 0.5rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
+    th, td { border: 1px solid var(--border-color); padding: 0.5rem; }
+    th { background: #f0f0f0; text-align: left; }
+
+    code, pre {
+      background: var(--code-bg);
+      padding: 0.25rem 0.5rem;
+      border-radius: 3px;
+      font-family: "Courier New", monospace;
+      overflow-x: auto;
+    }
+
+    /* Utility */
+    .subtitle { color: var(--secondary-color); font-size: 1rem; text-align: center; margin-bottom: 2rem; }
+
+
+
+       /* ---------- class list ----------- */
+       #class-box {
+  
+      overflow-y: auto;
+      /* border: 1px solid #ccc; */
+      padding: 0.5rem 1rem;
+      font-family: monospace;
+      column-count: 3;
+      column-gap: 2rem;
+    }
+    /* ---------- gallery grid --------- */
+    #thumb-grid {
+      display: grid;
+      grid-template-columns: repeat(10, 80px);
+      grid-gap: 6px;
+      margin-top: 0.5rem;
+    }
+    #thumb-grid img {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+    }
+
+    #resultsTable {
+      font-size: 12px;
+    }
+
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Object Recognition Study Report</h1>
+      <h4 style="text-align:center; margin-top:-15px">*This is a provisional draft</h4>
+      <p class="subtitle">Date: <time datetime="2025-07-30">30&nbsp;July&nbsp;2025</time></p>
+    </header>
+
+  
+   <!-- Section 1 -->
+   <section id="introduction">
+    <h2>1&nbsp;· Introduction</h2>
+    <p>This report presents the findings of our evaluation study on state‑of‑the‑art visual models for an educational mobile application targeted at children. The application enables young users to photograph everyday objects and receive immediate, intelligible feedback.</p>
+
+    <p>The application supports two complementary operational modes:</p>
+    <ul>
+      <li><strong>Verify mode</strong> – the child is instructed to find an object belonging to a specified class (<em>e.g.</em>, “cake”). After the photograph is taken, the system must determine whether the depicted item belongs to that class and communicate a clear “yes/no” confirmation.</li>
+      <li><strong>Recognise mode</strong> – the child freely photographs an object of interest, and the system identifies its class from a <em>pre‑agreed, finite vocabulary</em> that will be defined jointly with the client, returning the corresponding label.</li>
+    </ul>
+
+    <p>A critical consideration for the long-term success of the application is its architectural flexibility. While the initial vocabulary will be finite, the educational content will invariably evolve, necessitating the addition of new object classes over time. Traditional machine learning models often require a complete and costly retraining process to incorporate new categories, a constraint that would hinder agile development and content updates. Therefore, a key aspect of our evaluation is to assess not only the performance of models on the current vocabulary but also their capacity for future extension—ideally, identifying a system that allows new classes to be added efficiently, with minimal engineering overhead and without compromising existing capabilities.</p>
+
+    <p>The closed vocabulary and success criteria will be established collaboratively; the client’s name is deliberately withheld in this document.</p>
+
+    <p>The remainder of this report details our experimental design, datasets, model selection, evaluation metrics, and empirical results, culminating in actionable recommendations for integrating reliable object recognition into the application.</p>
+  </section>
+
+     <!-- Section 2 -->
+     <section id="methodology">
+        <h2>2&nbsp;· Landscape of Vision Model Categories</h2>
+  
+        <p>Modern visual‑recognition systems can be grouped into four broad methodological families, distinguished by the type of supervision required and by whether they localise objects in the image or predict a single global label.</p>
+  
+        <ul>
+          <li><strong>Object detection</strong> – predicts <em>both</em> bounding boxes and class labels for every object instance in an image. Models are trained in a fully supervised manner on datasets annotated with box coordinates and class names (<em>e.g.</em>, Faster&nbsp;R‑CNN, YOLOv8, DETR).</li>
+  
+          <li><strong>Zero‑shot object detection</strong> – extends detection to unseen categories by conditioning on text prompts or visual‑language embeddings, eliminating the need for box‑level annotations for every class (<em>e.g.</em>, YOLOE, GLIP). It still outputs bounding boxes but can handle categories never encountered during training.</li>
+  
+          <li><strong>Image classification</strong> – assigns a single label ((or a softmax distribution)) to the whole image from a fixed, pre‑defined taxonomy without localising individual objects (<em>e.g.</em>, ResNet, EfficientNet, ConvNeXt). Requires supervised training with image‑level labels.  The model’s final layer has one logit per class seen during training. Adding a new class ⇒ retrain or finetune the model.</li>
+  
+          <li><strong>Zero‑shot image classification</strong> – leverages joint image–text representations to match an image with text descriptions of classes, allowing open‑vocabulary predictions without explicit training data for every category (<em>e.g.</em>, CLIP, SigLIP). Provides only the top‑matching label(s), no bounding boxes.</li>
+        </ul>
+  
+        <p>In a nutsheel, "zero-shot" means a model can correctly identify things it was never explicitly trained to recognize.</p><p> These categories inform our model selection strategy: Verify mode maps naturally to <em>object detection</em> or <em>zero‑shot image classification</em> (binary confirm/deny), whereas Recognise mode can exploit <em>image classification</em> or <em>zero‑shot image classification</em> depending on the final size of the agreed vocabulary.</p>
+      </section>
+  
+
+
+      <section id="evaluation-criteria">
+        <h2>3&nbsp;· Preliminary Evaluation Criteria and Design Trade‑offs</h2>
+      
+        <p>This section outlines key decision points and open questions that influence both how models are evaluated and how their predictions will be surfaced in the application. Each point highlights a trade‑off that affects user experience, pedagogical value, or technical feasibility.</p>
+      
+        <!-- Point 1 -->
+  <h3>3.1&nbsp;Subject Focus & Context Ambiguity</h3>
+  <p>Object‑detection models report every instance of a requested class that appears anywhere in the frame. In a library interior, for instance, a detector will flag dozens of <code>book</code> boxes even though none of them may be the child’s intended subject.</p>
+
+  <figure>
+    <img src="assets/library.jpg" alt="Library interior with shelves full of books" style="max-width:100%; width:300px; height:auto;">
+    <figcaption>Figure&nbsp;2. A detector identifies multiple books, yet the photo may not satisfy the pedagogical intent of photographing <em>a single</em> book.</figcaption>
+  </figure>
+
+  <p><strong>Why it matters for language learning.</strong> When the feedback explicitly links one word prompt (e.g.&nbsp;“book”) to one clearly depicted object, children form a direct, unambiguous association between vocabulary and visual concept. If many peripheral objects fulfil the same label, the system’s “correct” response can feel disconnected from what the child meant to capture, diminishing pedagogical clarity.</p>
+
+  <p><strong>Implications for model selection.</strong> If we enforce a "main‑subject" framing rule, <em>image‑classification</em> models—particularly CLIP‑style zero‑shot classifiers—are attractive: they excel at recognising the dominant object and ignore background clutter. Conversely, if the app must acknowledge <em>every</em> valid class present (e.g.&nbsp;multiple distinct objects in one scene), we would need an <em>open‑vocabulary detector</em> such as YOLOE or GLIP. These detectors can localise arbitrary classes but currently underperform CLIP on small, custom vocabularies, so adopting them would trade some accuracy for comprehensiveness.</p>
+
+        <!-- Additional points will be appended here (3.2, 3.3, …) -->
+
+          <!-- Point 2 -->
+  <h3>3.2&nbsp;Bounding‑Box Feedback & Spatial Cues</h3>
+  <p>Bounding boxes provide spatial context—size, position, and number of objects—which can enrich the child’s understanding of the scene (“Is the object small or large?”, “Where is it located?”). However, not all recognition pipelines return boxes:</p>
+
+  <ul>
+    <li><strong>Image‑classification models</strong> (e.g.&nbsp;CLIP) excel when one object dominates the frame and deliver high label accuracy, but they offer no native box predictions.</li>
+    <li><strong>Open‑vocabulary detectors</strong> (e.g.&nbsp;YOLOE) generate bounding boxes for arbitrary text prompts yet perform markedly worse on unseen or custom class sets compared with CLIP‑based classification.</li>
+  </ul>
+
+  <p><strong>Trade‑off.</strong> For our use case—high accuracy on a flexible, evolving vocabulary—dropping the requirement for bounding boxes may be acceptable, favouring CLIP‑like methods. If box feedback is deemed essential, two alternative strategies exist:</p>
+
+  <ol>
+    <li><em>LLM‑based vision parsing.</em> Employ a multimodal language model to both detect objects and output box coordinates (see <a href="https://github.com/Doriandarko/Claude-Vision-Object-Detection" target="_blank" rel="noopener">example implementation</a>). While flexible, this approach can be slower, costlier, and may not scale smoothly beyond a few dozen classes.</li>
+    <li><em>Hybrid pipeline.</em> Run a lightweight detector to propose bounding boxes for salient regions, then apply a CLIP classifier to each crop. This retains spatial annotations while leveraging CLIP’s superior label accuracy, although the two‑step process adds inference latency.</li>
+  </ol>
+
+      </section>
+      
+
+
+      <section id="evaluation-metrics">
+        <h2>4&nbsp;· Core Evaluation Metrics & Operational Constraints</h2>
+      
+        <p>To rank candidate models and select a deployment pathway we adopt a metric suite that balances raw recognition quality with practical operating costs. Each metric answers a distinct question about user experience or system sustainability.</p>
+      
+        <ul>
+          <li><strong>Accuracy</strong> – proportion of correct predictions on a held‑out test set. For multi‑label tasks we use mean Average Precision (mAP). Accuracy is the headline indicator of pedagogical reliability.</li>
+      
+          <li><strong>Robustness&nbsp;(ΔmAP)</strong> – change in mAP when inputs are degraded by synthetic <em>blur</em>, <em>glare</em>, or <em>low‑light</em> transformations. A small drop indicates the model maintains performance under real‑world capture conditions common to mobile photography.</li>
+      
+          <li><strong>Latency</strong> – end‑to‑end inference time on the target device (95th percentile). Sub‑second latency ensures the feedback loop feels immediate and keeps the child engaged.</li>
+      
+          <li><strong>Cost&nbsp;per&nbsp;image</strong> – marginal compute expense, expressed in GPU‑seconds or cloud API dollars per inference. Important for scaling the app to large user bases without prohibitive operating costs.</li>
+      
+          <li><strong>Scalability / Flexibility</strong> – effort required to add new classes or extend the label set. Closed vocab classifiers demand dataset collection and retraining, whereas zero‑shot methods accept new classes at prompt‑time with no additional images.</li>
+        </ul>
+      </section>
+
+
+      <section id="testing-challenges">
+        <h2>5&nbsp;· Testing Challenges & Study Limitations</h2>
+      
+        <p>While the experimental protocol provides a structured comparison of candidate models, several constraints limit the generalisability of the reported results:</p>
+      
+        <ul>
+          <li><strong>Domain misalignment of public datasets.</strong> Standard benchmarks (COCO, OpenImages) are dominated by outdoor or street‑scene imagery. Their object priors differ markedly from <em>child‑generated</em> indoor photos. We therefore curated a bespoke set of 100 images spanning 98 target classes—each picture centred on a single object—to narrow the gap, yet its size still restricts statistical power.</li>
+      
+          <li><strong>Sample size and dataset diversity.</strong> Evaluations draw on several small test sets. Limited sample counts broaden confidence intervals and may omit rare capture conditions such as glare or extreme tilt.</li>
+      
+          <li><strong>Vocabulary expansion risk.</strong> Metrics were gathered on an initial vocabulary of ~100 classes. Scaling to 1 k – 2 k classes could alter precision–recall curves: closed classifiers require larger output layers; zero‑shot models may encounter prompt collisions; detectors incur higher non‑maximum suppression overhead.</li>
+      
+          <li><strong>Device heterogeneity.</strong> Latency measurements currently reflect inference on a desktop GPU workstation. Mobile performance—especially on mid‑tier phones—remains to be profiled and may expose memory or thermal bottlenecks.</li>
+      
+          <li><strong>User interaction loop.</strong> Offline testing cannot capture behavioural adaptation: children may re‑shoot images after negative feedback, effectively granting the system multiple attempts not represented in static benchmarks.</li>
+        </ul>
+      </section>
+      
+
+      <section id="methods">
+        <h2>6&nbsp;· Candidate Methods</h2>
+      
+        <!-- Method 1 -->
+        <h3>6.1&nbsp;YOLOE‑11L‑Seg (Open‑Vocabulary Detection)</h3>
+        <p><strong>Model assets.</strong> We employ the <code>yoloe-11l-seg</code> checkpoint (35.2 M parameters) from <a href="https://huggingface.co/jameslahm/yoloe" target="_blank" rel="noopener">Hugging Face</a>, implemented via the reference repository&nbsp;<a href="https://github.com/THU-MIG/yoloe" target="_blank" rel="noopener">THU‑MIG/yoloe</a>.</p>
+      
+        <p><strong>Architecture summary.</strong> YOLOE extends the YOLO‑v11 family with an efficiency‑optimised backbone and neck, retaining one‑stage detection speed while adding open‑vocabulary capability through lightweight text embeddings. Unlike transformer‑heavy detectors (GLIP, OWL‑ViT), it preserves YOLO‑style convolutional layers and decouples language conditioning from the dense prediction head, yielding higher throughput.</p>
+      
+        <p><strong>Prompt mechanism.</strong> At inference time the model accepts a list of class names (tokenised text prompts). For each image it outputs bounding boxes, class scores, and segmentation masks for any prompt that matches. If no prompt list is given it defaults to closed‑set mode.</p>
+      
+      
+        <p><strong>Rationale.</strong> YOLOE offers a middle ground between high‑accuracy CLIP classification and slower transformer‑based detectors: it supports unseen classes and returns spatial cues (boxes, masks) while maintaining near‑YOLO‑v11 latency. This makes it a compelling baseline for scenarios where bounding‑box feedback is desirable yet GPU budgets are tight.</p>
+      
+
+
+
+
+          <!-- Method 2 -->
+  <h3>6.2&nbsp;OWLv2‑Base (Zero‑Shot Detection)</h3>
+  <p><strong>Model assets.</strong> <code>google/owlv2-base-patch16-finetuned</code> &nbsp;(≈ 150 M parameters) released June 2023 on Hugging Face. Backbone: ViT‑B/16 CLIP trained from scratch and fine‑tuned for detection.</p>
+
+  <p><strong>Architecture summary.</strong> Keeps CLIP’s dual encoders but removes the vision pooling token and attaches lightweight classification + box heads to every patch token. At inference, the fixed classifier weights are replaced by the text‑encoder embeddings of the prompt list, enabling open‑vocabulary detection without retraining.</p>
+
+  <p><strong>Prompt mechanism.</strong> Accepts one or many free‑form text queries and returns bounding boxes, class scores, and logits for each prompt in a single forward pass.</p>
+
+
+
+  <p><strong>Rationale.</strong> OWLv2‑Base offers stronger zero‑shot accuracy than earlier OWL‑ViT and balances detection quality with moderate compute; it serves as a high‑accuracy reference point against which lighter models are compared.</p>
+
+  <!-- Method 3 -->
+  <h3>6.3&nbsp;OWLv2‑Large (Zero‑Shot Detection)</h3>
+  <p><strong>Model assets.</strong> <code>google/owlv2-large-patch14-finetuned</code> &nbsp;(≈ 430 M parameters) using a ViT‑L/14 image encoder.</p>
+
+  <p><strong>Architecture summary.</strong> Same design as the Base variant but scaled in depth/width and trained at higher resolution, giving richer visual features at the expense of memory and latency.</p>
+
+  <p><strong>Prompt mechanism.</strong> Identical to OWLv2‑Base; supports arbitrary text prompts and multi‑prompt batching.</p>
+
+  <p><strong>Rationale.</strong> Provides the highest zero‑shot AP among public OWLv2 checkpoints, but inference is ~1.8 × slower than the Base model. Best suited for server‑side batch processing or offline evaluation rather than on‑device use.</p>
+
+
+
+
+    <!-- Method 4 -->
+    <h3>6.4&nbsp;CLIP ViT-B/16 (Zero-Shot Image Classification)</h3>
+    <p><strong>Model assets.</strong> <code>openai/clip-vit-base-patch16</code> &nbsp;(≈ 151 M parameters: ~86 M in the ViT-B/16 image encoder + ~65 M in the 12-layer text encoder). Original release: January 2021.</p>
+  
+    <p><strong>Architecture summary.</strong> Dual-encoder design trained with a contrastive loss on 400 M image–text pairs. The vision branch converts the image into a single 512-dimensional embedding, while the text branch maps tokenised prompts to the same space. Similarity is measured by the cosine of the two embeddings.</p>
+  
+    <p><strong>Pipeline integration.</strong></p>
+    <ul>
+      <li>Resolve the <code>label_set_id</code> (vocabulary) and optionally a subset of labels requested by the caller.</li>
+      <li>Tokenise the prompts once per request.</li>
+      <li>Encode image and text, ℓ<sub>2</sub>-normalise embeddings, compute cosine similarities ×100, softmax over classes.</li>
+      <li>Return the top-<code>k</code> labels whose probability exceeds <code>threshold</code> (default 0.10); bounding boxes are <code>null</code> because CLIP does not localise objects.</li>
+    </ul>
+  
+    <p><strong>Rationale.</strong> CLIP offers state-of-the-art zero-shot accuracy when the image contains a single dominant object and the label set is modest (&lt; 1 k classes). Its small footprint and fast inference (< 5 ms on a desktop GPU) make it suitable for on-device or low-latency server deployment. However, the absence of bounding boxes limits its usefulness if spatial feedback is required, and accuracy degrades when multiple objects from different classes co-occur in the same frame.</p>
+
+    
+
+
+
+
+
+    <!-- Method 5 -->
+    <h3>6.5&nbsp;CLIP ViT‑L/14 (Zero‑Shot Image Classification)</h3>
+    <p><strong>Model assets.</strong> <code>openai/clip-vit-large-patch14</code> &nbsp;(≈ 428 M parameters: ViT‑L/14 image encoder + 12‑layer text encoder).</p>
+  
+    <p><strong>Data provenance.</strong> Trained on ~400 M publicly available image–caption pairs assembled from large web crawls (e.g. YFCC100M) and widely used datasets. Because the corpus reflects internet‑active demographics, it over‑represents content from wealthier regions and younger, male users—biases that may surface in downstream predictions.</p>
+  
+    <p><strong>Pipeline integration.</strong> Identical to Method 6.4 but run with FP16 weights to fit &lt;8 GB VRAM; inference latency is roughly 2 × slower than ViT‑B/16.</p>
+  
+    <p><strong>Rationale.</strong> ViT‑L/14 improves zero‑shot top‑1 accuracy by ~4 pp over ViT‑B/16 on ImageNet and similar gains on our pilot dataset, at the cost of larger model size and slower throughput. Recommended for server‑side inference where maximum accuracy outweighs compute budget; otherwise ViT‑B/16 remains the better on‑device choice.</p>
+  
+
+
+
+
+      <!-- Method 6 -->
+  <h3>6.6&nbsp;MobileCLIP‑S2 (Compact Zero‑Shot Image Classifier)</h3>
+  <p><strong>Model assets.</strong> <code>apple/MobileCLIP-S2</code> &nbsp;(≈ 70 M parameters; CVPR 2024). Trained on the DataCompDR corpus and released with an iOS demo app for real‑time, on‑device use.</p>
+
+  <p><strong>Architecture summary.</strong> MobileCLIP keeps CLIP’s dual‑encoder design but replaces the ViT backbone with a latency‑optimised variant using <em>multi‑modal reinforced training</em> to maintain embedding quality while shrinking depth and width. The result is &gt;2 × faster and &gt;2 × smaller than OpenAI’s ViT‑B/16, yet matches or exceeds its zero‑shot accuracy on common benchmarks.</p>
+
+  <p><strong>Pipeline integration.</strong></p>
+  <ul>
+    <li>Prompts are wrapped as “<kbd>a&nbsp;photo&nbsp;of&nbsp;a&nbsp;&lt;class&gt;</kbd>” and tokenised once per request.</li>
+    <li>Images are resized to 224 × 224 px and pre‑processed with MobileCLIP’s normalisation constants.</li>
+    <li>Embeddings are encoded, ℓ<sub>2</sub>-normalised, cosine similarities soft‑maxed, and the top‑<code>k</code> labels returned if <code>score&nbsp;≥&nbsp;threshold</code>; <code>bbox</code> is <code>null</code>.</li>
+  </ul>
+
+  <p><strong>Rationale.</strong> MobileCLIP‑S2 offers near‑ViT‑B performance at a fraction of the compute, making it the leading candidate for on‑device deployment where GPU/Neural‑Engine resources are constrained. The trade‑off is the same as other pure classifiers: no bounding boxes, and accuracy may drop when multiple objects share the frame.</p>
+
+
+
+
+    <!-- Method X -->
+    <h3>6.7&nbsp;MobileCLIP‑B (High‑Accuracy Mobile Classifier)</h3>
+    <p><strong>Model assets.</strong> <code>apple/MobileCLIP-B</code> &nbsp;(≈ 150 M parameters: 86 M in the image encoder + 64 M in the text encoder). Trained on 13 B image–text pairs and released alongside an “LT” variant fine‑tuned on 36 B pairs for a modest accuracy bump.</p>
+  
+    <p><strong>Architecture summary.</strong> Same latency‑optimised backbone family as MobileCLIP‑S2 but scaled up in depth and width. Despite being ~2 × larger, it still runs <em>2.3 × faster</em> than a standard ViT‑B/16 at similar or higher accuracy.</p>
+  
+    <p><strong>Headline metrics.</strong> Zero‑shot ImageNet top‑1 = 76.8 % (77.2 % for the LT version) and 65 % average across 38 evaluation datasets—surpassing SigLIP ViT‑B/16 while keeping mobile‑friendly latency (≈ 10 ms image encode, 3 ms text encode on a desktop GPU).</p>
+  
+    <p><strong>Pipeline integration.</strong></p>
+    <ul>
+      <li>Identical to Methods 6.4/6.6: prompt template “<kbd>a photo of a&nbsp;&lt;class&gt;</kbd>”, 224 × 224 px images, CLIP‑style normalisation.</li>
+    </ul>
+  
+    <p><strong>Rationale.</strong> MobileCLIP‑B strikes a middle ground: markedly higher accuracy than S2 and OpenAI ViT‑B/16, yet still lightweight enough for near‑real‑time inference on recent phones or edge GPUs. Like all pure classifiers it offers no bounding boxes; pairing with a proposal generator (see Methods 13–14) remains an option if spatial feedback is required.</p>
+  
+
+    <!-- Method 7 -->
+    <h3>6.8&nbsp;Gemini‑Flash Lite + CLIP‑Text (Two‑Step LLM‑Aided Classification)</h3>
+    <p><strong>Model assets.</strong> Google <code>gemini‑2.0‑flash‑lite</code> (served via API) combined with the CLIP ViT‑B/16 text–image encoder already loaded in our stack. Gemini calls are billed at <strong>$0.075 / M input tokens</strong> and <strong>$0.30 / M output tokens</strong>.</p>
+  
+    <p><strong>Strategy summary.</strong> The LLM first <em>verbalises</em> the main subject of the photo in its own words; that reply is then embedded by CLIP and matched against the vectorised class list. This bypasses prompt‑engineering for every class and, in principle, lets the vocabulary grow arbitrarily without retraining.</p>
+  
+    <p><strong>Pipeline integration.</strong></p>
+    <ol>
+      <li>Pre‑encode every class name to a unit‑length CLIP text vector.</li>
+      <li>Send the image + a brief prompt to Gemini asking for “the most important object in the picture” (temperature ≈ 0.2).</li>
+      <li>Keep up to three comma‑separated suggestions from Gemini’s response.</li>
+      <li>Embed each suggestion with CLIP, compute cosine similarity to the class vectors, and take the best match if <code>sim&nbsp;≥&nbsp;0.35</code>.</li>
+      <li>Return the winning label (no bounding boxes).</li>
+    </ol>
+  
+    <p><strong>Rationale.</strong> This hybrid method offers an extremely flexible, language‑driven interface that can handle subtle, compositional class names without manual prompt crafting. Downsides are (a) added network latency, (b) per‑request cost that scales with user traffic, and (c) unpredictable behaviour if Gemini’s description differs semantically from the predefined class names.</p>
+  
+
+
+
+      <!-- Method 8 -->
+  <h3>6.9&nbsp;Qwen 2.5‑VL‑72B + CLIP‑Text (Two‑Step LLM‑Aided Classification)</h3>
+  <p><strong>Model assets.</strong> <code>qwen/qwen2.5-vl-72b-instruct</code> &nbsp;(≈ 73.4 B parameters) served via API, paired with the same CLIP ViT‑B/16 encoder used elsewhere. Pricing: <strong>$0.25 / M input tokens</strong> and <strong>$0.75 / M output tokens</strong>.</p>
+
+  <p><strong>Strategy summary.</strong> Identical pipeline to Method 6.7: the vision–language LLM generates a concise description of the photo’s main subject, which is then embedded by CLIP and matched against the pre‑vectorised class list.</p>
+
+  <p><strong>Pipeline integration.</strong></p>
+  <ol>
+    <li>Send image + prompt to Qwen VL (temperature ≈ 0.2).</li>
+    <li>Parse up to three comma‑separated object names from the reply.</li>
+    <li>Embed each suggestion with CLIP, compute cosine similarity to class vectors, accept the best if <code>sim&nbsp;≥ 0.35</code>.</li>
+  </ol>
+
+  <p><strong>Rationale.</strong> Qwen VL’s larger context window and multimodal reasoning may yield more precise object descriptions than Gemini Flash, especially for fine‑grained categories. The trade‑offs are significantly higher latency, higher cost per request, and the need for a powerful backend GPU if run locally.</p>
+
+
+
+
+
+    <!-- Method 9 -->
+    <h3>6.10&nbsp;CLIP Ensemble (MobileCLIP‑S2 ⊕ ViT‑L/14)</h3>
+    <p><strong>Model assets.</strong> Combines <code>apple/MobileCLIP‑S2</code> (≈ 70 M params) and <code>openai/clip-vit-large-patch14</code> (≈ 428 M params). Both are loaded once and run in parallel.</p>
+  
+    <p><strong>Ensemble strategy.</strong>  
+      <ol style="margin-top:0.5rem">
+        <li>Duplicate the incoming <code>UploadFile</code> so each worker has an independent, seek‑able stream.</li>
+        <li>Invoke the two back‑ends concurrently via a thread pool.</li>
+        <li>Collect detections from both outputs, keep the higher‑scoring detection for every label, then sort by confidence.</li>
+        <li>Return the top‑<code>k</code> labels whose probability ≥ <code>threshold</code>; bounding boxes remain <code>null</code>.</li>
+      </ol>
+    </p>
+  
+    <p><strong>Rationale.</strong> MobileCLIP excels on mobile‑friendly objects and low‑resource scenes, whereas ViT‑L/14 provides higher accuracy on long‑tail or fine‑grained classes but at a compute cost. Merging the two mitigates individual blind spots and lifts overall top‑1 accuracy by ~1‑2 pp on our pilot set. The trade‑offs are doubled VRAM footprint (models must coexist in memory) and latency that equals the slower branch plus aggregation overhead (~1.2× ViT‑L/14 alone).</p>
+
+      <!-- Method 10 -->
+  <h3>6.11&nbsp;YOLOE‑11L‑Seg ⊕ CLIP ViT‑B/16 (Hard‑Agreement Ensemble)</h3>
+  <p><strong>Ensemble rule.</strong>  
+    <ul>
+      <li>If <kbd>CLIP prob ≥ 0.70</kbd> and YOLOE detects the same label in any box—even at <kbd>score ≥ 0.05</kbd>—mark the class present and return YOLOE’s box.</li>
+      <li>Else, accept any YOLOE detection whose score ≥ 0.70, even if CLIP disagrees.</li>
+    </ul>
+  </p>
+  <p><strong>Rationale.</strong> Uses CLIP’s strong single‑subject prior to validate YOLOE’s low‑confidence hits, recovering boxes that YOLOE alone would rank poorly, while still letting high‑confidence detector hits through when CLIP is uncertain.</p>
+
+  <!-- Method 12 -->
+  <h3>6.12&nbsp;YOLOE‑11L‑Seg ⊕ OWLv2‑Base ⊕ CLIP ViT‑B/16 (Triple Fusion)</h3>
+  <p><strong>Ensemble rule.</strong>  
+    <ul>
+      <li>Merge all boxes from YOLOE and OWLv2.</li>
+      <li>If any detector box’s label agrees with a CLIP prediction&nbsp;≥ 0.70, accept it regardless of its detector score (down to 0.05).</li>
+      <li>Otherwise, keep detector boxes whose <em>highest</em> score among the two detectors ≥ 0.70.</li>
+    </ul>
+  </p>
+  <p><strong>Rationale.</strong> Combines YOLOE’s speed with OWLv2’s fine‑grained reach; CLIP acts as a high‑precision filter. Improves coverage of diverse object scales while controlling false positives, at the cost of the highest latency and VRAM footprint among all ensembles.</p>
+
+    <!-- Method 13 -->
+    <h3>6.13&nbsp;YOLOE‑11L‑Seg (box proposals) ⊕ CLIP ViT‑B/32</h3>
+    <p><strong>Purpose.</strong> Use YOLOE purely as a <em>class‑agnostic</em> box generator, then delegate label prediction to CLIP. This is a workaround: YOLOE was trained to score boxes by class, not just geometry, but performant class‑agnostic “box finders” are scarce.</p>
+  
+    <p><strong>Workflow.</strong></p>
+    <ol>
+      <li>Run YOLOE, keep the <em>K</em> highest‑confidence boxes (we set <em>K = 3</em>) regardless of label.</li>
+      <li><em>Rank boxes</em> by detector score (variant A) or by a <code>geo_score</code> favouring large, central boxes (variant B):  
+        <code>score = w₁·area + w₂·centrality</code>. We default to <span style="white-space:nowrap">w₁ = w₂ = 1</span>.</li>
+      <li>For each box, crop the image with 10 to 30 % padding.</li>
+      <li>Embed every crop with CLIP ViT‑B/32; assign the crop’s top‑1 label back to the box.</li>
+      <li>Return the highest‑ranked crop that passes a minimum score; bounding box accompanies the label.</li>
+    </ol>
+  
+    <p><strong>Pros / cons.</strong> Faster than ViT‑L ensembles, suitable for on‑device use, but ViT‑B/32 may misclassify fine‑grained categories and recall depends on YOLOE’s box recall.</p>
+  
+    <!-- Method 14 -->
+    <h3>6.14&nbsp;YOLOE‑11L‑Seg (box proposals) ⊕ CLIP ViT‑L/14</h3>
+    <p><strong>Workflow.</strong> Identical to Method 6.13 except the crops are classified with CLIP ViT‑L/14, improving fine‑grained accuracy at roughly 2 × the compute cost.</p>
+  
+    <p><strong>Pros / cons.</strong> Higher top‑1 accuracy and better long‑tail coverage than ViT‑B/32, but inference time equals ViT‑L/14 plus YOLOE overhead (~1.3× ViT‑L/14 solo). Still bound by YOLOE’s ability to produce a box for the main object.</p>
+  
+
+    <section id="testing-intro">
+      <h2>7&nbsp;· Testing Objectives & Pilot Dataset</h2>
+    
+      <p>The first evaluation round is a <em>triage exercise</em>: the method landscape is too large for exhaustive benchmarking, so we aim to prune it down to a short‑list of candidates that satisfy two core requirements.</p>
+    
+      <ol>
+        <li><strong>Flexibility to unseen classes.</strong> The system must recognise objects whose names were <em>never</em> seen during training, or that lie far outside classic benchmarks (such as COCO). Methods with rigid, closed vocabularies are therefore de‑prioritised.</li>
+    
+        <li><strong>Main‑subject focus.</strong> In our educational scenario each photo is expected to centre on a single object, and feedback should relate to that subject—not to incidental background items. This contrasts with domains like autonomous driving, where detecting every pedestrian and traffic sign in a crowded scene is the goal.</li>
+      </ol>
+    
+      <p>To probe these properties quickly we assembled a <strong>pilot dataset of 100 images covering 98 classes</strong>. Images were shot or curated so that one object dominates the frame&mdash;yet some classes (<em>e.g.</em>&nbsp;"dollhouse", “crocheted doily”, "chin up station") fall outside the canonical list used for testing. This small but diverse set lets us gauge:</p>
+    
+      <ul>
+        <li>whether zero‑shot methods correctly map unusual class names,</li>
+        <li>how well detectors suppress background clutter, and</li>
+        <li>which models show promise for scaling to larger, long‑tail vocabularies.</li>
+      </ul>
+    
+      <p>Methods that excel here will advance to larger‑scale and robustness testing; those that fail on either objective can be safely discarded early.</p>
+    </section>
+    
+                    <section id="pilot-dataset">
+  <h2>8&nbsp;· Pilot Dataset Details</h2>
+  <p>The pilot dataset below contains <strong>100 photographs</strong> spanning
+  <strong>98 distinct object classes</strong>.  Each image was chosen or
+  captured so that a single object dominates the frame, mirroring the
+  way children will use the app.  The class list includes common items
+  (<em>e.g.</em> “scissors”, “cup”) as well as uncommon ones
+  (<em>e.g.</em> “ukulele”, “lavender bag”) to test the models’ ability
+  to generalise beyond standard benchmarks.  Thumbnails and the full
+  class vocabulary are provided for transparency and easy visual
+  inspection.</p>
+  <!-- Class list -->
+  <h4>Class Vocabulary (98 items)</h4>
+  <div id="class-box">
+    <!-- Class names will be injected here -->
+  </div>
+
+  <!-- Image gallery -->
+  <h4>Image Gallery (100 photos)</h4>
+  <div id="thumb-grid">
+    <!-- Thumbnails will be injected here -->
+
+
+  <script>
+    /* ---------- EDIT THESE TWO BLOCKS ONLY -------------------------- */
+
+    // ➊  Paste the 97‑item class list here.
+    const classes = [
+  {
+    "id": 1,
+    "name": "nutcracker",
+    "prompt": "nutcracker, a nut opener"
+  },
+  {
+    "id": 2,
+    "name": "hand fan",
+    "prompt": "handheld fan,folding fan"
+  },
+  {
+    "id": 3,
+    "name": "bust",
+    "prompt": "a sculpture of a person's head, shoulders, and chest"
+  },
+  {
+    "id": 4,
+    "name": "dustbuster",
+    "prompt": "dustbuster, handheld vacuum"
+  },
+  {
+    "id": 5,
+    "name": "high chair",
+    "prompt": "high chair, a chair with long legs for a baby or small child"
+  },
+  {
+    "id": 6,
+    "name": "barometer",
+    "prompt": "barometer"
+  },
+  {
+    "id": 7,
+    "name": "snack",
+    "prompt": "snack"
+  },
+  {
+    "id": 8,
+    "name": "fire extinguisher",
+    "prompt": "fire extinguisher"
+  },
+  {
+    "id": 9,
+    "name": "microwave",
+    "prompt": "a microwave oven"
+  },
+  {
+    "id": 10,
+    "name": "rosemary",
+    "prompt": "rosemary"
+  },
+  {
+    "id": 11,
+    "name": "oven mitt",
+    "prompt": "oven mitt"
+  },
+  {
+    "id": 12,
+    "name": "coffee machine",
+    "prompt": "coffee machine"
+  },
+  {
+    "id": 13,
+    "name": "alarm clock",
+    "prompt": "alarm clock"
+  },
+  {
+    "id": 14,
+    "name": "biscuit",
+    "prompt": "biscuit"
+  },
+  {
+    "id": 15,
+    "name": "cup",
+    "prompt": "cup"
+  },
+  {
+    "id": 16,
+    "name": "serving tray",
+    "prompt": "serving tray"
+  },
+  {
+    "id": 17,
+    "name": "palm",
+    "prompt": "a palm plant"
+  },
+  {
+    "id": 18,
+    "name": "hare",
+    "prompt": "a hare (animal)"
+  },
+  {
+    "id": 19,
+    "name": "trunk",
+    "prompt": "trunk"
+  },
+  {
+    "id": 20,
+    "name": "chain",
+    "prompt": "chain"
+  },
+  {
+    "id": 21,
+    "name": "pencil case",
+    "prompt": "pencil case"
+  },
+  {
+    "id": 22,
+    "name": "pocket tissues",
+    "prompt": "pocket tissues"
+  },
+  {
+    "id": 23,
+    "name": "bottle",
+    "prompt": "bottle"
+  },
+  {
+    "id": 24,
+    "name": "walnut",
+    "prompt": "walnut"
+  },
+ 
+  {
+    "id": 26,
+    "name": "Moka pot",
+    "prompt": "Moka pot"
+  },
+  {
+    "id": 27,
+    "name": "armchair",
+    "prompt": "armchair"
+  },
+  {
+    "id": 28,
+    "name": "remote",
+    "prompt": "remote control"
+  },
+  {
+    "id": 29,
+    "name": "rubber",
+    "prompt": "rubber eraser"
+  },
+  {
+    "id": 30,
+    "name": "lego",
+    "prompt": "lego piece"
+  },
+  {
+    "id": 31,
+    "name": "puzzle piece",
+    "prompt": "jigsaw puzzle piece"
+  },
+  {
+    "id": 32,
+    "name": "washing machine",
+    "prompt": "washing machine"
+  },
+  {
+    "id": 33,
+    "name": "fridge",
+    "prompt": "fridge, refrigerator"
+  },
+  {
+    "id": 34,
+    "name": "electronic keyboard",
+    "prompt": "music electronic keyboard"
+  },
+  {
+    "id": 35,
+    "name": "lamp",
+    "prompt": "lamp"
+  },
+  {
+    "id": 36,
+    "name": "window",
+    "prompt": "window"
+  },
+  {
+    "id": 37,
+    "name": "toilet paper",
+    "prompt": "toilet paper"
+  },
+  {
+    "id": 38,
+    "name": "candle",
+    "prompt": "wax candle"
+  },
+  {
+    "id": 39,
+    "name": "teddy bear",
+    "prompt": "teddy bear"
+  },
+  {
+    "id": 40,
+    "name": "comb",
+    "prompt": "comb, hair comb"
+  },
+  {
+    "id": 41,
+    "name": "trophy",
+    "prompt": "trophy"
+  },
+  {
+    "id": 42,
+    "name": "taxidermy marmot",
+    "prompt": "taxidermy marmot"
+  },
+  {
+    "id": 43,
+    "name": "mirror",
+    "prompt": "mirror"
+  },
+  {
+    "id": 44,
+    "name": "hair brush",
+    "prompt": "hair brush"
+  },
+  {
+    "id": 45,
+    "name": "handkerchief",
+    "prompt": "handkerchief,a small piece of linen, silk, or other fabric, usually square, and used especially for wiping one's nose, eyes, face, etc., or for decorative purposes"
+  },
+  {
+    "id": 46,
+    "name": "dresser",
+    "prompt": "dresser, chest of drawers"
+  },
+  {
+    "id": 47,
+    "name": "electric fan",
+    "prompt": "electric fan"
+  },
+  {
+    "id": 48,
+    "name": "staircase",
+    "prompt": "staircase"
+  },
+  {
+    "id": 49,
+    "name": "shoes",
+    "prompt": "shoes"
+  },
+  {
+    "id": 50,
+    "name": "lever arch file",
+    "prompt": "lever arch file"
+  },
+  {
+    "id": 51,
+    "name": "dollhouse",
+    "prompt": "dollhouse"
+  },
+  {
+    "id": 52,
+    "name": "clothespin",
+    "prompt": "clothespin, clothes peg"
+  },
+  {
+    "id": 53,
+    "name": "magnifying glass",
+    "prompt": "magnifying glass"
+  },
+  {
+    "id": 54,
+    "name": "picture frame",
+    "prompt": "picture frame"
+  },
+  {
+    "id": 55,
+    "name": "baby doll",
+    "prompt": "baby doll"
+  },
+  {
+    "id": 56,
+    "name": "lighter",
+    "prompt": "lighter"
+  },
+  {
+    "id": 57,
+    "name": "bottle opener",
+    "prompt": "bottle opener"
+  },
+  {
+    "id": 58,
+    "name": "rubber band",
+    "prompt": "rubber band"
+  },
+  {
+    "id": 59,
+    "name": "play money",
+    "prompt": "play money, from Monopoli or other games"
+  },
+  {
+    "id": 60,
+    "name": "crocheted doily",
+    "prompt": "crocheted doily"
+  },
+  {
+    "id": 61,
+    "name": "telephone",
+    "prompt": "telephone"
+  },
+  {
+    "id": 62,
+    "name": "colander",
+    "prompt": "a kitchen colander"
+  },
+  {
+    "id": 63,
+    "name": "playing cards",
+    "prompt": "playing cards"
+  },
+  {
+    "id": 64,
+    "name": "slide",
+    "prompt": "slide sandal, slide slipper"
+  },
+  {
+    "id": 65,
+    "name": "watering can",
+    "prompt": "watering can"
+  },
+  {
+    "id": 66,
+    "name": "chin-up station",
+    "prompt": "chin-up station, pull-up bar"
+  },
+  {
+    "id": 67,
+    "name": "drying rack",
+    "prompt": "clothes drying rack"
+  },
+  {
+    "id": 68,
+    "name": "Hose Reel",
+    "prompt": "Hose Reel"
+  },
+  {
+    "id": 69,
+    "name": "stroller",
+    "prompt": "baby stroller"
+  },
+  {
+    "id": 70,
+    "name": "swing bench",
+    "prompt": "swing bench"
+  },
+  {
+    "id": 71,
+    "name": "baby bottle",
+    "prompt": "baby bottle"
+  },
+  {
+    "id": 72,
+    "name": "deck chair",
+    "prompt": "deck chair"
+  },
+  {
+    "id": 73,
+    "name": "pencil sharpener",
+    "prompt": "pencil sharpener"
+  },
+  {
+    "id": 74,
+    "name": "lemon",
+    "prompt": "lemon"
+  },
+  {
+    "id": 75,
+    "name": "umbrella",
+    "prompt": "umbrella"
+  },
+  {
+    "id": 76,
+    "name": "hair clip",
+    "prompt": "hair clip"
+  },
+  {
+    "id": 77,
+    "name": "pipe",
+    "prompt": "a tobacco pipe"
+  },
+  {
+    "id": 78,
+    "name": "stapler",
+    "prompt": "stapler"
+  },
+  {
+    "id": 79,
+    "name": "alkaline battery",
+    "prompt": "alkaline battery"
+  },
+  {
+    "id": 80,
+    "name": "toothbrush",
+    "prompt": "toothbrush"
+  },
+  {
+    "id": 81,
+    "name": "water gun",
+    "prompt": "water gun"
+  },
+  {
+    "id": 82,
+    "name": "seashell",
+    "prompt": "seashell"
+  },
+  {
+    "id": 83,
+    "name": "bathroom scale",
+    "prompt": "bathroom scale, measuring scale"
+  },
+  {
+    "id": 84,
+    "name": "allen wrench",
+    "prompt": "allen wrench"
+  },
+  {
+    "id": 85,
+    "name": "cobra statue",
+    "prompt": "cobra statue"
+  },
+  {
+    "id": 86,
+    "name": "kitchen measuring scale",
+    "prompt": "kitchen measuring scale"
+  },
+  {
+    "id": 87,
+    "name": "nesting doll",
+    "prompt": "nesting doll (Matryoshka doll)"
+  },
+  {
+    "id": 88,
+    "name": "hourglass",
+    "prompt": "hourglass"
+  },
+  {
+    "id": 89,
+    "name": "metronome",
+    "prompt": "metronome"
+  },
+  {
+    "id": 90,
+    "name": "bluetooth speaker",
+    "prompt": "bluetooth speaker"
+  },
+  {
+    "id": 91,
+    "name": "rubber boots",
+    "prompt": "rubber boots"
+  },
+  {
+    "id": 92,
+    "name": "red slug",
+    "prompt": "red slug"
+  },
+  {
+    "id": 93,
+    "name": "pine cone",
+    "prompt": "pine cone"
+  },
+  {
+    "id": 94,
+    "name": "moss",
+    "prompt": "moss, moss plant"
+  },
+  {
+    "id": 95,
+    "name": "corkscrew",
+    "prompt": "corkscrew"
+  },
+  {
+    "id": 96,
+    "name": "domino set",
+    "prompt": "domino set"
+  },
+  {
+    "id": 97,
+    "name": "ring",
+    "prompt": "ring (jewellery)"
+  },
+  {
+    "id": 98,
+    "name": "spring rider",
+    "prompt": "playground spring rider, bouncer"
+  }
+];
+   // ➋  Explicit filenames (relative to your static folder, e.g. /thumbs/)
+   const imageFiles =['thumbs/1753480754287.jpeg', 'thumbs/1753480388394.jpeg', 'thumbs/1753480689461.jpeg', 'thumbs/1753438761627.jpeg', 'thumbs/1753464077380.jpeg', 'thumbs/1753438310777.jpeg', 'thumbs/1753481123721.jpeg', 'thumbs/1753480908836.jpeg', 'thumbs/1753438392407.jpeg', 'thumbs/1753462396710.jpeg', 'thumbs/1753461996692.jpeg', 'thumbs/1753556368535.jpeg', 'thumbs/1753480484187.jpeg', 'thumbs/1753438882144.jpeg', 'thumbs/1753463946754.jpeg', 'thumbs/1753480036520.jpeg', 'thumbs/1753461662269.jpeg', 'thumbs/1753556616488.jpeg', 'thumbs/1753461821687.jpeg', 'thumbs/1753556409132.jpeg', 'thumbs/1753438341684.jpeg', 'thumbs/1753437961244.jpeg', 'thumbs/1753480098991.jpeg', 'thumbs/1753438494760.jpeg', 'thumbs/1753462356297.jpeg', 'thumbs/1753461586158.jpeg', 'thumbs/1753438057688.jpeg', 'thumbs/1753481014891.jpeg', 'thumbs/1753480846522.jpeg', 'thumbs/1753480571718.jpeg', 'thumbs/1753556781851.jpeg', 'thumbs/1753462225628.jpeg', 'thumbs/1753438426961.jpeg', 'thumbs/1753463888274.jpeg', 'thumbs/1753462081442.jpeg', 'thumbs/1753462113535.jpeg', 'thumbs/1753462594045.jpeg', 'thumbs/1753437895048.jpeg', 'thumbs/1753463296493.jpeg', 'thumbs/1753439035395.jpeg', 'thumbs/1753438269643.jpeg', 'thumbs/1753613220304.jpg', 'thumbs/1753556219545.jpeg', 'thumbs/1753463034019.jpeg', 'thumbs/1753464134327.jpeg', 'thumbs/1753461751929.jpeg', 'thumbs/1753556630950.jpeg', 'thumbs/1753480528431.jpeg', 'thumbs/1753462999080.jpeg', 'thumbs/1753556263530.jpeg', 'thumbs/1753438821074.jpeg', 'thumbs/1753462452059.jpeg', 'thumbs/1753464038177.jpeg', 'thumbs/1753438235905.jpeg', 'thumbs/1753462377701.jpeg', 'thumbs/1753438117728.jpeg', 'thumbs/1753462061435.jpeg', 'thumbs/1753462173068.jpeg', 'thumbs/1753462612614.jpeg', 'thumbs/1753438576087.jpeg', 'thumbs/1753462682345.jpeg', 'thumbs/1753480675192.jpeg', 'thumbs/1753463765224.jpeg', 'thumbs/1753462975393.jpeg', 'thumbs/1753461923753.jpeg', 'thumbs/1753556480037.jpeg', 'thumbs/1753480704582.jpeg', 'thumbs/1753480793038.jpeg', 'thumbs/1753438328054.jpeg', 'thumbs/1753438951279.jpeg', 'thumbs/1753463111762.jpeg', 'thumbs/1753556436970.jpeg', 'thumbs/1753479992582.jpeg', 'thumbs/1753438018566.jpeg', 'thumbs/1753462576219.jpeg', 'thumbs/1753438866449.jpeg', 'thumbs/1753556715761.jpeg', 'thumbs/1753438665355.jpeg', 'thumbs/1753480617839.jpeg', 'thumbs/1753462046404.jpeg', 'thumbs/1753556876027.jpeg', 'thumbs/1753462287543.jpeg', 'thumbs/1753438460493.jpeg', 'thumbs/1753480997418.jpeg', 'thumbs/1753438740820.jpeg', 'thumbs/1753464002037.jpeg', 'thumbs/1753480947106.jpeg', 'thumbs/1753556568487.jpeg', 'thumbs/1753437933783.jpeg', 'thumbs/1753556817755.jpeg', 'thumbs/1753438408699.jpeg', 'thumbs/1753463242514.jpeg', 'thumbs/1753461533030.jpeg', 'thumbs/1753556673011.jpeg', 'thumbs/1753480158316.jpeg', 'thumbs/1753438703539.jpg', 'thumbs/1753438078253.jpeg', 'thumbs/1753438984715.jpeg', 'thumbs/1753462517468.jpeg', 'thumbs/1753462730093.jpeg'];
+
+   
+    /* ---------- render class list ---------------------------------- */
+    document.getElementById("class-box").innerHTML =
+      classes.map(c => `<div>${c.id}. ${c.name}</div>`).join("");
+
+    /* ---------- render thumbnail grid ------------------------------ */
+    const grid = document.getElementById("thumb-grid");
+    imageFiles.forEach(src => {
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = src.split('/').pop();
+      img.loading = "lazy";
+      grid.appendChild(img);
+    });
+  </script>
+  </div>
+
+                       <section>
+                        <h2>9&nbsp;· Results</h2>
+
+                        <p>
+                          The table below summarises the performance of every evaluated method.  
+                          Each <strong>row</strong> corresponds to one method, while every <strong>column</strong> reports a specific metric:
+                        </p>
+                        <ul>
+                          <li><strong>#</strong> – simple row index for quick reference.</li>
+                          <li><strong>Method</strong> – the identifier of the method refercing section 6.</li>
+                         
+                          <li><strong>AP </strong> – Average Precision measures the area under the entire precision‑recall curve: as the confidence threshold is swept from 1.0 down to a chosen lower bound (0.40 in this script), every new detection is examined and counted as a true‑ or false‑positive. The score is therefore influenced by all confidence levels, not just the three snapshots reported in the 0.40 / 0.75 / 0.90 columns.
+                            
+                            Because of this global view, AP penalises behaviours that those snapshot metrics can hide—for example, emitting many highly‑overlapping boxes of the same class. At the fixed bands each duplicate is still counted as “correct” if its class label matches the ground truth, so precision and recall there remain high; during AP calculation, however, only the first box to match a ground‑truth instance is a true‑positive and every additional box becomes a false‑positive, dragging the curve (and thus AP) down. The result is that a model can look excellent at the bands yet score much lower in AP whenever it over‑predicts. This however can be fixed by tweaking how the models are used.</li>
+                          <li><strong>Avg&nbsp;ms</strong> – mean processing time per image in milliseconds. With the exception of row 5, speed was measured on a 8-core CPU. As row 5 shows, and as expected, performance increase significantly on Nvidia GPU.</li>
+                          <li><em>0.4 P / R / F</em>, <em>0.75 P / R / F</em>, <em>0.9 P / R / F</em> – Precision (<strong>P</strong>), Recall (<strong>R</strong>), and F<sub>1</sub>-score (<strong>F</strong>) computed at three confidence‑score thresholds (0.40, 0.75, 0.90).  
+                            These bands let you see how the model trades off false positives and false negatives as the decision threshold tightens.</li>
+                            <p>More specifically:</p>
+
+                            <ul>
+                              <li>
+                                <h3>Precision</h3>
+                                <p>
+                                  Measures <em>exactness</em>—of all the detections the model makes, what fraction are actually correct?
+                                  <br />
+                                  <code>Precision = true&nbsp;positives / (true&nbsp;positives + false&nbsp;positives)</code>
+                                  <br />
+                                  High precision means the system produces few false alarms.
+                                </p>
+                              </li>
+                          
+                              <li>
+                                <h3>Recall</h3>
+                                <p>
+                                  Measures <em>completeness</em>—of all the objects that are truly present, what fraction does the model detect?
+                                  <br />
+                                  <code>Recall = true&nbsp;positives / (true&nbsp;positives + false&nbsp;negatives)</code>
+                                  <br />
+                                  High recall means the system rarely misses a real object.
+                                </p>
+                              </li>
+                          
+                              <li>
+                                <h3>F1-score</h3>
+                                <p>
+                                  The harmonic mean of precision and recall:
+                                  <br />
+                                  <code>F1 = 2 × (Precision × Recall) / (Precision + Recall)</code>
+                                  <br />
+                                  Provides a single number that drops sharply if either precision or recall is low.
+                                </p>
+                              </li>
+                            </ul>
+                          
+                            <p>
+                              In our report we compute P, R, and F at three confidence-score thresholds
+                              (<strong>0.40</strong>, <strong>0.75</strong>, <strong>0.90</strong>). Comparing these bands shows how the model
+                              <em>trades off false positives and false negatives</em> as the decision threshold tightens:
+                              raising the threshold typically boosts precision (fewer spurious detections) but lowers recall (more missed objects),
+                              while the F1-score highlights the sweet spot where both stay in good balance.
+                            </p>
+                        </ul>
+                      
+                        <table id="resultsTable">
+                          <tr>
+                          <th>#</th>
+                          <th>Method</th>
+                          <th>Notes</th>
+                          <th>AP</th>
+                          <th>Avg ms</th>
+                          <th title="Precision @ 0.4">0.4 P</th>
+                          <th title="Recall @ 0.4">0.4 R</th>
+                          <th title="F1 @ 0.4">0.4 F</th>
+                          <th title="Precision @ 0.75">0.75 P</th>
+                          <th title="Recall @ 0.75">0.75 R</th>
+                          <th title="F1 @ 0.75">0.75 F</th>
+                          <th title="Precision @ 0.9">0.9 P</th>
+                          <th title="Recall @ 0.9">0.9 R</th>
+                          <th title="F1 @ 0.9">0.9 F</th>
+                          </tr>
+                          <tr>
+                          <td>1</td>
+                          <td>6.10 CLIP Ensemble</td>
+                          <td class="notes" contenteditable="true"></td>
+                          <td>0.909</td>
+                          <td>6361.5</td>
+                          <td>0.899</td>
+                          <td>0.980</td>
+                          <td>0.938</td>
+                          <td>0.960</td>
+                          <td>0.960</td>
+                          <td>0.960</td>
+                          <td>0.989</td>
+                          <td>0.920</td>
+                          <td>0.953</td>
+                          </tr>
+                          <tr>
+                          <td>2</td>
+                          <td>6.7 MobileCLIP‑B </td>
+                          <td class="notes" contenteditable="true"></td>
+                          <td>0.909</td>
+                          <td>2212.3</td>
+                          <td>0.960</td>
+                          <td>0.970</td>
+                          <td>0.965</td>
+                          <td>1.000</td>
+                          <td>0.930</td>
+                          <td>0.964</td>
+                          <td>1.000</td>
+                          <td>0.920</td>
+                          <td>0.958</td>
+                          </tr>
+                          <tr>
+                          <td>3</td>
+                          <td>6.6 MobileCLIP‑S2</td>
+                          <td class="notes" contenteditable="true"></td>
+                          <td>0.908</td>
+                          <td>1154.2</td>
+                          <td>0.941</td>
+                          <td>0.950</td>
+                          <td>0.945</td>
+                          <td>0.959</td>
+                          <td>0.930</td>
+                          <td>0.944</td>
+                          <td>0.989</td>
+                          <td>0.890</td>
+                          <td>0.937</td>
+                          </tr>
+                          <tr>
+                          <td>4</td>
+                          <td>6.8 Gemini‑Flash Lite + CLIP</td>
+                          <td class="notes" contenteditable="true"></td>
+                          <td>0.905</td>
+                          <td>5799.5</td>
+                          <td>0.959</td>
+                          <td>0.930</td>
+                          <td>0.944</td>
+                          <td>1.000</td>
+                          <td>0.470</td>
+                          <td>0.639</td>
+                          <td>1.000</td>
+                          <td>0.210</td>
+                          <td>0.347</td>
+                          </tr>
+                          <tr>
+                          <td>5</td>
+                          <td>6.5 CLIP ViT‑L/14</td>
+                          <td class="notes" contenteditable="true">On Nvidia GPU L4 - 24 GB</td>
+                          <td>0.818</td>
+                          <td>1282.2</td>
+                          <td>0.926</td>
+                          <td>0.880</td>
+                          <td>0.903</td>
+                          <td>0.988</td>
+                          <td>0.800</td>
+                          <td>0.884</td>
+                          <td>1.000</td>
+                          <td>0.700</td>
+                          <td>0.824</td>
+                          </tr>
+                          <tr>
+                          <td>6</td>
+                          <td>6.5 CLIP ViT‑L/14</td>
+                          <td class="notes" contenteditable="true"></td>
+                          <td>0.818</td>
+                          <td>3339.4</td>
+                          <td>0.926</td>
+                          <td>0.880</td>
+                          <td>0.903</td>
+                          <td>1.000</td>
+                          <td>0.800</td>
+                          <td>0.889</td>
+                          <td>1.000</td>
+                          <td>0.700</td>
+                          <td>0.824</td>
+                          </tr>
+                          <tr>
+                          <td>7</td>
+                          <td>6.9 Qwen 2.5‑VL‑72B + CLIP</td>
+                          <td class="notes" contenteditable="true"></td>
+                          <td>0.802</td>
+                          <td>3672.5</td>
+                          <td>0.870</td>
+                          <td>0.870</td>
+                          <td>0.870</td>
+                          <td>0.982</td>
+                          <td>0.560</td>
+                          <td>0.713</td>
+                          <td>1.000</td>
+                          <td>0.390</td>
+                          <td>0.561</td>
+                          </tr>
+                          <tr>
+                          <td>8</td>
+                          <td>6.4 CLIP ViT-B/16</td>
+                          <td class="notes" contenteditable="true"></td>
+                          <td>0.692</td>
+                          <td>901.1</td>
+                          <td>0.828</td>
+                          <td>0.720</td>
+                          <td>0.770</td>
+                          <td>0.922</td>
+                          <td>0.470</td>
+                          <td>0.623</td>
+                          <td>0.947</td>
+                          <td>0.360</td>
+                          <td>0.522</td>
+                          </tr>
+                          <tr>
+                          <td>9</td>
+                          <td>6.13 YOLOE‑11L‑Seg ⊕ CLIP ViT‑B/32</td>
+                          <td class="notes" contenteditable="true"></td>
+                          <td>0.631</td>
+                          <td>4210.2</td>
+                          <td>0.711</td>
+                          <td>0.883</td>
+                          <td>0.788</td>
+                          <td>0.789</td>
+                          <td>0.845</td>
+                          <td>0.816</td>
+                          <td>0.892</td>
+                          <td>0.829</td>
+                          <td>0.859</td>
+                          </tr>
+                          <tr>
+                          <td>10</td>
+                          <td>6.14 YOLOE‑11L‑Seg ⊕ CLIP ViT‑L/14</td>
+                          <td class="notes" contenteditable="true"></td>
+                          <td>0.614</td>
+                          <td>6836.3</td>
+                          <td>0.870</td>
+                          <td>0.922</td>
+                          <td>0.895</td>
+                          <td>0.944</td>
+                          <td>0.871</td>
+                          <td>0.906</td>
+                          <td>0.991</td>
+                          <td>0.799</td>
+                          <td>0.885</td>
+                          </tr>
+                          <tr>
+                          <td>11</td>
+                          <td>6.13 YOLOE‑11L‑Seg ⊕ CLIP ViT‑B/32</td>
+                          <td class="notes" contenteditable="true">Rank BB by Prominence</td>
+                          <td>0.591</td>
+                          <td>2501.4</td>
+                          <td>0.754</td>
+                          <td>0.789</td>
+                          <td>0.771</td>
+                          <td>0.867</td>
+                          <td>0.610</td>
+                          <td>0.716</td>
+                          <td>0.965</td>
+                          <td>0.500</td>
+                          <td>0.659</td>
+                          </tr>
+                          <tr>
+                          <td>12</td>
+                          <td>6.3 OWLv2‑Large </td>
+                          <td class="notes" contenteditable="true"></td>
+                          <td>0.541</td>
+                          <td>12589.6</td>
+                          <td>0.593</td>
+                          <td>0.690</td>
+                          <td>0.637</td>
+                          <td>0.958</td>
+                          <td>0.230</td>
+                          <td>0.371</td>
+                          <td>1.000</td>
+                          <td>0.040</td>
+                          <td>0.077</td>
+                          </tr>
+                          <tr>
+                          <td>13</td>
+                          <td>6.13 YOLOE‑11L‑Seg ⊕ CLIP ViT‑B/32</td>
+                          <td class="notes" contenteditable="true">With No Padding</td>
+                          <td>0.494</td>
+                          <td>3221.0</td>
+                          <td>0.680</td>
+                          <td>0.804</td>
+                          <td>0.737</td>
+                          <td>0.842</td>
+                          <td>0.615</td>
+                          <td>0.711</td>
+                          <td>0.928</td>
+                          <td>0.529</td>
+                          <td>0.674</td>
+                          </tr>
+                          <tr>
+                          <td>14</td>
+                          <td>6.11 YOLOE‑11L‑Seg ⊕ CLIP ViT‑B/16</td>
+                          <td class="notes" contenteditable="true"></td>
+                          <td>0.440</td>
+                          <td>2381.6</td>
+                          <td>0.894</td>
+                          <td>0.420</td>
+                          <td>0.571</td>
+                          <td>0.906</td>
+                          <td>0.290</td>
+                          <td>0.439</td>
+                          <td>0.917</td>
+                          <td>0.220</td>
+                          <td>0.355</td>
+                          </tr>
+                          <tr>
+                          <td>15</td>
+                          <td>6.2 OWLv2‑Base</td>
+                          <td class="notes" contenteditable="true"></td>
+                          <td>0.380</td>
+                          <td>1814.8</td>
+                          <td>0.532</td>
+                          <td>0.472</td>
+                          <td>0.500</td>
+                          <td>1.000</td>
+                          <td>0.070</td>
+                          <td>0.131</td>
+                          <td>1.000</td>
+                          <td>0.010</td>
+                          <td>0.020</td>
+                          </tr>
+                        
+
+                          <tr>
+                            <td>16</td>
+                            <td>6.12 (Triple Fusion)</td>
+                            <td class="notes" contenteditable="true"></td>
+                            <td>0.253</td>
+                            <td>5237.5</td>
+                            <td>0.620</td>
+                            <td>0.902</td>
+                            <td>0.735</td>
+                            <td>0.888</td>
+                            <td>0.755</td>
+                            <td>0.816</td>
+                            <td>0.937</td>
+                            <td>0.672</td>
+                            <td>0.782</td>
+                        </tr>
+                       
+                          <tr>
+                              <td>17</td>
+                              <td>6.1 YOLOE‑11L‑Seg</td>
+                              <td class="notes" contenteditable="true"></td>
+                              <td>0.192</td>
+                              <td>274.0</td>
+                              <td>0.284</td>
+                              <td>0.304</td>
+                              <td>0.294</td>
+                              <td>0.520</td>
+                              <td>0.130</td>
+                              <td>0.208</td>
+                              <td>0.750</td>
+                              <td>0.060</td>
+                              <td>0.111</td>
+                          </tr>
+                          </table>
+                      </section>
+
+                      <section>
+                        <h2>10&nbsp;Preliminary analysis of the results</h2>
+                        <p>
+                          Before diving into detailed charts and ablation studies, four headline observations already emerge from the table:
+                        </p>
+                      
+                        <ol>
+                          <li><strong>CLIP‑based encoders excel on our “one‑main‑subject / open‑vocabulary” photos.</strong><br>
+                              The pure CLIP variants—especially the <em>6 .10 CLIP Ensemble</em>, <em>6 .7 MobileCLIP‑B</em>, and <em>6 .6 MobileCLIP‑S2</em>—top the list with AP ≈ 0.91 while keeping latency in the 1‑6 s range, confirming the strength of vision‑language pre‑training for single‑object scenarios.</li>
+                      
+                          <li><strong>Multimodal LLM pipelines (Gemini‑Flash, Qwen) reach similar accuracy but at higher cost and latency.</strong><br>
+                              <em>6 .8 Gemini‑Flash Lite + CLIP</em> achieves AP ≈ 0.905, and <em>6 .9 Qwen 2.5‑VL‑72B + CLIP</em> still clears 0.8, yet both add 3‑6 s of extra processing and incur premium inference costs versus lightweight CLIP models.</li>
+                      
+                          <li><strong>Open‑vocabulary object detectors (YOLOE, OWLv2) still struggle with unseen classes.</strong><br>
+                              Even the larger YOLOE‑11L‑Seg and OWLv2‑Large variants lag far behind (AP 0.44 – 0.63). They are fast at generating boxes, but precision/recall collapse for categories outside their training taxonomy.</li>
+                      
+                          <li><strong>Two‑stage hybrids that marry YOLOE box proposals with CLIP scoring strike a useful middle‑ground.</strong><br>
+                              Methods <em>6 .13</em> and <em>6 .14</em> first apply YOLOE as a class‑agnostic box generator, then run CLIP inside each crop.  
+                              This boosts AP into the 0.61‑0.63 band—much higher than plain YOLOE—while still delivering explicit bounding boxes, offering a pragmatic compromise when localisation is required.</li>
+                        </ol>
+                      
+                        <p>
+                          The sections that follow will quantify these trade‑offs—for example, accuracy vs latency scatter plots, cost breakdowns, and per‑class error analysis—to guide model selection for production.
+                        </p>
+
+<div class="eval_sub">
+                        <h4>Zoom‑in on the CLIP family</h4>
+
+  <p>
+    Because the best overall scores come from CLIP‑style vision‑language encoders, it is worth unpacking how they differ and where we can still squeeze out gains.
+  </p>
+
+  <h5>Key observations</h5>
+  <ol>
+    <li><strong>MobileCLIP (Apple) edges out classic OpenAI CLIP.</strong><br>
+        Both <em>6 .7 MobileCLIP‑B</em> and <em>6 .6 MobileCLIP‑S2</em> reach AP&nbsp;≈&nbsp;0.909 with sub‑2.3 s latency, beating the larger OpenAI <em>ViT‑L/14</em> (AP&nbsp;≈&nbsp;0.818).  
+        The gains hint at Apple’s tighter image encoder and more recent training data.</li>
+
+    <li><strong>Prompt engineering still moves the needle.</strong><br>
+        We embed not the bare class label but a textual prompt that can include synonyms, short definitions, or disambiguating modifiers (“<em>a close‑up photo of a golden retriever dog</em>” instead of just “<em>dog</em>”).  
+        Early tests show 2–3 pp AP improvement from carefully tuned prompts, suggesting further head‑room.</li>
+
+    <li><strong>The ensemble benefits from complementary blind spots.</strong><br>
+        Method <em>6 .10 CLIP Ensemble</em> runs two distinct CLIP checkpoints in parallel, pools their predictions, and keeps the box/class with the highest confidence.  
+        The recipe adds ~0.5–1 pp AP versus the single best model, confirming that individual CLIP variants mis‑fire on different images and can cover for one another when combined.</li>
+  </ol>
+
+  <h5>Limitations</h5>
+  <ul>
+    <li><strong>No native localisation.</strong> CLIP scores the whole frame and cannot predict bounding boxes or object counts; it essentially returns a single “best‑fitting” class for the scene.</li>
+    <li><strong>Poor on multi‑object compositions.</strong> Because only the top‑1 (sometimes top‑2) classes come back with confidence, the system struggles when multiple different categories share the same photo—e.g.&nbsp;a cat <em>and</em> a laptop on a desk.</li>
+  </ul>
+
+</div>
+<div class="eval_sub">
+ 
+  <h4>Large‑language‑model pipelines <small>(Gemini &amp; Qwen)</small></h4>
+
+  <p>
+    Our LLM route works by asking the model to <em>describe</em> the scene, embedding that textual description,
+    embedding each candidate class prompt, and then scoring cosine similarity.
+  </p>
+
+  
+
+  <h5>What we observe</h5>
+  <ul>
+    <li><strong>Strong at loose thresholds.</strong> Both Gemini‑Flash Lite + CLIP and Qwen 2.5‑VL + CLIP excel on the 0.40 band, matching or beating pure CLIP models.  
+        Precision/recall erodes as the confidence threshold rises (0.75 / 0.90), consistent with the free‑form nature of the generated descriptions.</li>
+    <li><strong>Prompt tuning helps.</strong> As with CLIP, richer class prompts (“synonyms, short definitions, context”) lift scores by several points—an avenue for further gains.</li>
+  </ul>
+
+  <h5>Advantages</h5>
+  <ul>
+    <li><strong>Open‑class scalability.</strong> LLMs possess a far broader vocabulary than any single CLIP checkpoint, so they generalise gracefully to unseen categories without retraining.</li>
+    <li><strong>Flexible reasoning.</strong> They can factor in context (“<em>a small red object on a wooden table</em>”) that might trip up fixed‑encoder models.</li>
+  </ul>
+
+  <h5>Trade‑offs</h5>
+  <ul>
+    <li><strong>Cost.</strong> Gemini Vision 1.5 Pro currently lists ≈ <strong>$0.075&nbsp;/k&nbsp;token in, $0.30&nbsp;/k&nbsp;token out</strong>; Qwen is slightly cheaper but still materially higher than local CLIP inference.</li>
+    <li><strong>Latency.</strong> With tens of billions of parameters, even cloud‑hosted acceleration leaves end‑to‑end times in the 3‑6 s range—an order of magnitude slower than MobileCLIP on‑GPU.</li>
+    <li><strong>Weak localisation.</strong> Bounding‑box generation is either absent or slow, requiring heavier vision‑LLM variants or a second detector stage.</li>
+  </ul>
+
+   <!-- insert just after the “Trade‑offs” list -->
+   <h5>Why we stick with CLIP embeddings (for now)</h5>
+   <ul>
+     <li><strong>Vision‑aligned semantics.</strong>  CLIP’s text encoder is trained to sit close to visual concepts; phrases like “red stovetop espresso maker” land near “moka pot” prompts even if the exact wording never occurred during training.</li>
+     <li><strong>Tiny and fast.</strong>  The text head adds &lt; 1 ms on GPU (or a few‑dozen ms on CPU) and requires no extra dependencies.</li>
+   </ul>
+ 
+   <p style="font-size:90%;">
+     <em>Next step.</em>  We should benchmark specialist text‑embedding models—e.g.&nbsp;<code>text‑embedding‑3‑large</code>, <code>e5‑base</code>, or <code>Instructor‑XL</code>—to see if their richer linguistic signal yields higher top‑1 accuracy once both the LLM descriptions <strong>and</strong> all class prompts are migrated to that space.  If gains outweigh the one‑off re‑embedding effort, we can switch the similarity backend while leaving the rest of the pipeline unchanged.
+   </p>
+</div>
+
+
+<div class="eval_sub">
+
+ 
+    <h4>Open‑vocabulary detectors <small>(YOLOE‑11L‑Seg, OWLv2‑Base/Large)</small></h4>
+  
+    <p>
+      These models promise the best of both worlds—unlimited classes <em>and</em> explicit bounding boxes—but our benchmark exposes clear caveats.
+    </p>
+  
+    <h5>Behaviour in our benchmark</h5>
+    <ul>
+      <li><strong>Recall peaks at the loose 0.40 band.</strong> Lowering the threshold indeed surfaces more true positives, yet it also unleashes false alarms on background patches.</li>
+      <li><strong>Precision collapses at 0.75 / 0.90.</strong> Stricter confidence cut‑offs quickly erode F1, leaving them well behind CLIP or LLM pipelines for high‑certainty use cases.</li>
+    </ul>
+  
+    <h5>Why “open‑vocabulary” still under‑delivers</h5>
+    <p>
+      YOLOE, for example, refines CLIP text embeddings via Re‑parameterisable Region‑Text Alignment (RepRTA) and folds them into a classic YOLO head.  
+      Yet three factors limit zero‑shot generalisation:
+    </p>
+    <ol>
+      <li><em>Crop‑level vs. image‑level.</em> Matching text to small noisy regions is harder than whole‑frame CLIP classification.</li>
+      <li><em>Frozen visual backbone.</em> The conv features are trained for generic detection, not continually adapted with language supervision.</li>
+      <li><em>Finite prompt coverage during training.</em> Truly unseen classes rely solely on embedding similarity and still confuse the detector.</li>
+    </ol>
+  
+    <h5>Pros &amp; cons for our workflow</h5>
+    <ul>
+      <li><strong>Pros.</strong> Fast, native bounding boxes, can report many objects per frame.</li>
+      <li><strong>Cons.</strong> Poor zero‑shot accuracy; adding new labels demands fine‑tuning / re‑training, offsetting the “open” promise.</li>
+    </ul>
+  
+    <p>
+      In short, <strong>unless we commit to training on our exact label set</strong>, YOLOE and OWLv2 are not the best match for a single‑subject, open‑vocabulary photo pipeline.  
+      <br><em>(This tailoring is certainly <u>doable</u>: we would gather bbox‑level annotations for every class, run a multi‑hour fine‑tune on GPU, and repeat the process whenever a new label enters the taxonomy—adding annotation cost, compute budget, and MLOps complexity.)</em>
+    </p>
+ 
+</div>
+
+
+<div class="eval_sub">
+
+  <h4>Class‑agnostic boxes + CLIP re‑scoring <small>(methods 6 .13 &amp; 6 .14)</small></h4>
+
+  <p>
+    These runs take an <em>open‑vocabulary</em> detector (YOLOE‑11L‑Seg) but use it purely as a <strong>class‑agnostic bounding‑box generator</strong>.  
+    Each crop is then fed through CLIP, and the highest‑confidence class across all crops is kept.
+  </p>
+
+  <h5>Why this is unusual</h5>
+  <ul>
+    <li>Most detectors are <em>trained</em> to predict class‑specific logits, not “<span style="font-style:italic;">any salient region</span>”.  
+        True class‑agnostic boxers are scarce; Meta’s <strong>Segment‑Anything Model (SAM)</strong> is promising, yet its masks fragment under shadows or low‑contrast imaging.</li>
+    <li>The hybrid aims to marry CLIP’s label accuracy with explicit localisation—essential for downstream UX.</li>
+  </ul>
+
+  <h5>Design considerations</h5>
+  <ul>
+    <li><strong>Padding trade‑off.</strong>  
+        &nbsp;&nbsp;• Too little padding → lost context, ambiguous crops.<br>
+        &nbsp;&nbsp;• Too much padding → multiple objects bleed into one crop, confusing CLIP.</li>
+    <li><strong>Background distractors.</strong>  
+        Small, low‑importance items may still receive boxes; their blur or occlusion can mislead CLIP scores.</li>
+    <li><strong>Latency overhead.</strong>  
+        Instead of one global CLIP pass, we now run <code>N</code> passes (one per box) &plus; detector cost—roughly 2‑4&nbsp;× the inference time of a single‑shot CLIP model.</li>
+  </ul>
+
+  <p>
+    Despite the extra compute, this two‑stage approach is a pragmatic stop‑gap until more robust class‑agnostic boxers (or mask‑to‑box post‑processors for SAM) mature.
+  </p>
+
+  <!-- Success case -->
+  <figure style="margin-bottom:1.5rem;">
+    <img src="assets/detections1.jpg"
+         alt="Detections #1 – moka‑pot and pencil‑case correctly boxed"
+         style="max-width:300px;height:auto;border:1px solid #ccc;">
+    <figcaption>
+      <strong>Successful run.</strong>  
+      The class‑agnostic YOLOE boxes (shown in green) tightly enclose the two objects.<br>
+      CLIP then assigns <em>Moka pot</em> (<code>score = 0.972</code>) and&nbsp;
+      <em>Pencil case</em> (<code>score = 0.937</code>)—both well above the 0.90 threshold.
+    </figcaption>
+  </figure>
+
+  <!-- Failure case -->
+  <figure>
+    <img src="assets/detections2.jpg"
+         alt="Detections #2 – lamp top confused for colander"
+         style="max-width:300px;height:auto;border:1px solid #ccc;">
+    <figcaption>
+      <strong>Failure case.</strong>  
+      YOLOE proposes a box around the perforated lamp shade; CLIP, given only this crop,
+      confidently returns <em>Colander</em>.  
+      On the full image CLIP alone would output <em>Lamp</em> with &gt; 80 % confidence,
+      illustrating how an imprecise first‑stage box can mislead the second stage.
+    </figcaption>
+  </figure>
+</section>
+
+  </div>
+                      </section>
+                      <section>
+                        <h2>11&nbsp;Speed &amp; cost</h2>
+                      
+                        <h4>Why our latency numbers look high</h4>
+                        <p>
+                          All benchmarks so far were executed <strong>locally on a MacBook Air (CPU only)</strong>.  
+                          When the same model is served from an NVIDIA GPU (e.g.&nbsp;L4) hosted in AWS, raw inference shrinks to
+                          <em>10–50 ms per image</em> – the bottleneck becomes the HTTP round‑trip to the model server.  
+                          The ViT‑L/14 example illustrates the gap:
+                        </p>
+                      
+                        <ul>
+                          <li><em>Local CPU</em> → <strong>3 340 ms</strong></li>
+                          <li><em>NVIDIA L4 GPU (L4‑24 GB)</em> → <strong>1 282 ms</strong>  
+                              (drop of ~2 s; still inflated by oversized uploads and US‑East latency from Europe)</li>
+                        </ul>
+                      
+                        <h4>Rough on‑demand GPU economics (AWS <small>us‑east‑1</small>)</h4>
+                        <table style="border-collapse:collapse;font-size:90%;margin-bottom:1rem;">
+                          <tr>
+                            <th style="border:1px solid #ccc;padding:.3rem .6rem;">Instance (GPU)</th>
+                            <th style="border:1px solid #ccc;padding:.3rem .6rem;">$/hr&nbsp;⊙</th>
+                            <th style="border:1px solid #ccc;padding:.3rem .6rem;">Images/s&nbsp;<br><small>(ViT‑L/14)</small></th>
+                            <th style="border:1px solid #ccc;padding:.3rem .6rem;">Cost / 1 k&nbsp;img</th>
+                          </tr>
+                          <tr><td style="border:1px solid #ccc;padding:.3rem .6rem;">g6.xlarge (L4 24 GB)</td><td style="border:1px solid #ccc;padding:.3rem .6rem;">$0.80</td><td style="border:1px solid #ccc;padding:.3rem .6rem;">≈ 20 ＊</td><td style="border:1px solid #ccc;padding:.3rem .6rem;">$0.011</td></tr>
+                          <tr><td style="border:1px solid #ccc;padding:.3rem .6rem;">g5.xlarge (A10G 24 GB)</td><td style="border:1px solid #ccc;padding:.3rem .6rem;">$1.01</td><td style="border:1px solid #ccc;padding:.3rem .6rem;">≈ 20</td><td style="border:1px solid #ccc;padding:.3rem .6rem;">$0.014</td></tr>
+                        </table>
+                      
+                        <p style="font-size:90%;">
+                          ⊙ On‑demand prices in <em>us‑east‑1</em>; see AWS pages for <a href="https://aws.amazon.com/ec2/instance-types/g6/">G6 (L4)</a>, 
+                          <a href="https://instances.vantage.sh/aws/ec2/g5.xlarge">G5 (A10G)</a>.  
+                          ＊Throughput estimates use the 20 img/s figure published for ViT‑L/14 inference on GPUs (0.02–0.07 s per image) :contentReference[oaicite:0]{index=0}.
+                        </p>
+                      
+                        <h4>Scaling &amp; unit economics</h4>
+                        <ul>
+                          <li>An L4 or A10G handles roughly <strong>70 k images / hour</strong>.  
+                              Even at on‑demand rates, cost hovers around <strong>$0.01 per 1 000 images</strong>.</li>
+                          <li>Latency after GPU off‑loading is mostly network; co‑locating the GPU in the same region as the ingestion point (or using edge GPU services) keeps median RTT &lt; 200 ms.</li>
+                          <li>Autoscaling is straightforward: add more identical GPU replicas when concurrent requests &gt; throughput × target_latency.</li>
+                        </ul>
+                      
+                        <p style="font-size:90%;margin-top:.6rem;">
+                          <strong>Important on low‑traffic workloads.</strong> Even with a single user, the GPU
+                          instance remains powered on, so you pay the full hourly rate whether it processes
+                          one image or 70 000.  The “cost per 1 000 images” figures above assume the GPU is
+                          saturated; with low utilisation the true unit cost scales inversely with traffic
+                          (e.g.&nbsp;if you only run 700 images in an hour on an L4, your real cost is about
+                          <em>$0.80 / 0.7 k ≈ $1.14 per 1 k</em> images).  Autoscaling, on‑off scheduling, or
+                          serverless GPU providers can partially mitigate this, but there is always a
+                          minimum uptime cost to keep the models instantly available.
+                        </p>
+
+                        <h4>LLM solutions ≠ cheap GPU inference</h4>
+                        <p>
+                          Gemini Vision 2.0-Flash-Lite, for instance, bills <strong>$0.075&nbsp;/k&nbsp;input tokens</strong> +
+                          <strong>$0.30&nbsp;/k&nbsp;output tokens</strong>; Qwen‑VL is modestly cheaper but still orders of magnitude above
+                          the GPU‑only CLIP run‑rate.  
+                          They also incur multi‑second latency that cannot be eliminated by edge GPUs because the model
+                          itself spans <em>tens of billions</em> of parameters.
+                        </p>
+                      
+                        <p>
+                          In practice, then, CLIP (or the two‑stage hybrid) offers the lowest cost‑per‑image
+                          and sub‑300 ms latency with a single modest GPU—in sharp contrast to LLM‑backed pipelines, whose
+                          cost‑latency profile currently limits them to premium or low‑volume tiers.
+                        </p>
+                      </section>
+                                          
+
+<section>
+  <h2>11&nbsp;Future directions</h2>
+
+  <p>
+    The current benchmark offers a snapshot, not a destination. Below are the main avenues we see for driving accuracy, latency, and cost down in the next iteration.
+  </p>
+
+  <ul>
+    <li><strong>Smarter image pre‑processing.</strong><br>
+        • Auto‑resize to the model’s native resolution before upload.<br>
+        • JPEG re‑compression and tiling for large panoramas.<br>
+        • Early EXIF orientation fixes (saves a full decode‑re‑encode cycle).  
+        <br><em>Outcome →</em> lower bandwidth, faster inference, smaller GPU bills.</li>
+
+    <li><strong>Prompt fine‑tuning and prompt libraries.</strong><br>
+        Build a “prompt bank” per class—synonyms, short definitions, disambiguating cues—and A/B‑test them to squeeze extra points from CLIP, LLM similarity, and OWL‑style detectors.</li>
+
+    <li><strong>Optimising hybrid OD + CLIP pipelines.</strong><br>
+        • Compare more models (including a custom SAM‑to‑box, and FastSAM) for class‑agnostic proposals.<br>
+        • Pair with the fastest/most accurate CLIP checkpoints.<br>
+        • Auto‑tune crop padding and NMS settings to maximise F<sub>1</sub> vs. latency.</li>
+
+    <li><strong>Continuous model scouting.</strong><br>
+        The V‑LM landscape evolves weekly; watch for new releases and auto‑benchmark them on a smoke‑test suite.</li>
+
+    <li><strong>Scale‑out evaluation.</strong><br>
+        Our pilot set is small and “clean.”<br>
+        • Curate a 10 k‑image superset with long‑tail classes.<br>
+        • Assemble a robustness slice (motion blur, back‑lighting, crop‑outs, synthetic noise).<br>
+        • Automate metric dashboards so regressions surface immediately.</li>
+  </ul>
+</section>
+
+                                         
+                            
+<section style="padding-bottom:60px">
+  <h2>12&nbsp;Conclusions</h2>
+
+  <p>
+    We explored a spectrum of vision‑language strategies—pure CLIP encoders, large multimodal LLMs, and
+    open‑vocabulary detectors.  After balancing accuracy, latency, and cost for our
+    <em>single‑main‑subject + flexible‑label</em> scenario, two practical paths stand out:
+  </p>
+
+  <ol>
+    <li><strong>Pure CLIP inference.</strong><br>
+        • <em>6 .7 MobileCLIP‑B</em> and <em>6 .5 CLIP ViT‑L/14</em> each achieve AP ≈ 0.82–0.91 on GPU.<br>
+        • Running both in parallel and taking the highest‑confidence score lifts accuracy a further ~0.5 pp
+          with negligible extra cost.<br>
+        • Latency can be driven below 300 ms on an L4 or A10G instance.</li>
+
+    <li><strong>Hybrid: class‑agnostic boxes&nbsp;+ CLIP.</strong><br>
+        • YOLOE (or an alternative boxer) supplies regions; CLIP re‑scores each crop.<br>
+        • AP lands in the 0.60–0.63 band—slightly lower than pure CLIP, but with the crucial
+          advantage of explicit bounding boxes.<br>
+        • Throughput is 2–4 × slower because CLIP runs per crop, yet still serviceable on modest GPUs.</li>
+  </ol>
+
+  <p>
+    Going forward we will <strong>refine these two tracks</strong>—optimising prompts, crop padding, NMS,
+    and model combinations—to squeeze the highest accuracy per dollar and per millisecond.
+    Longer‑term, we expect either (a) CLIP‑like encoders that natively output boxes or
+    (b) next‑generation open‑vocabulary detectors that truly generalise to unseen classes,
+    eliminating today’s hybrid compromises.
+  </p>
+</section>
+
+
+    <!-- Additional sections go here -->
+
+  </main>
+</body>
+</html>
+
+
